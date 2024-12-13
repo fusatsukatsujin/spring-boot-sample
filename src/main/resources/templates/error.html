@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>エラーページ</title>
+</head>
+<body>
+    <h1>エラーが発生しました</h1>
+    
+    <div>
+        <p><strong>ステータス:</strong> <span th:text="${status}"></span></p>
+        <p><strong>エラーメッセージ:</strong> <span th:text="${error}"></span></p>
+    </div>
+
+    <div th:if="${trace}">
+        <h2>スタックトレース:</h2>
+        <pre th:text="${trace}"></pre>
+    </div>
+
+    <a href="/" th:href="@{/}">トップページに戻る</a>
+</body>
+</html> 
