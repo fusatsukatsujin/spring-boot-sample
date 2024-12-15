@@ -41,3 +41,13 @@ out/
 /terraform/.terraform.lock.hcl
 /terraform/terraform.tfstate
 /terraform/terraform.tfstate.backup
+
+/terraform/application/.terraform/
+/terraform/application/.terraform.lock.hcl
+/terraform/application/terraform.tfstate
+/terraform/application/terraform.tfstate.backup
+
+/terraform/infrastructure/.terraform/
+/terraform/infrastructure/.terraform.lock.hcl
+/terraform/infrastructure/terraform.tfstate
+/terraform/infrastructure/terraform.tfstate.backup  

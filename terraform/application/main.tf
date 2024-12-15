@@ -2,26 +2,16 @@ provider "aws" {
   region = "ap-northeast-1"
 }
 
-# ECRリポジトリ
-resource "aws_ecr_repository" "app" {
-  name = "spring-demo-app"
+data "terraform_remote_state" "infrastructure" {
+  backend = "local"
+  config = {
+    path = "../infrastructure/terraform.tfstate"
+  }
 }
 
 # ECSクラスター
 resource "aws_ecs_cluster" "main" {
   name = "spring-demo-cluster"
-}
-
-# DynamoDB
-resource "aws_dynamodb_table" "users" {
-  name           = "Users"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "id"
-
-  attribute {
-    name = "id"
-    type = "S"
-  }
 }
 
 # ECSタスク実行ロール
@@ -42,9 +32,9 @@ resource "aws_iam_role" "ecs_task_execution_role" {
   })
 }
 
-# DynamoDB用のIAMポリシー
-resource "aws_iam_role_policy" "dynamodb_access" {
-  name = "dynamodb-access"
+# 各種IAMポリシー
+resource "aws_iam_role_policy" "policies" {
+  name = "ecs-task-policies"
   role = aws_iam_role.ecs_task_execution_role.id
 
   policy = jsonencode({
@@ -60,20 +50,8 @@ resource "aws_iam_role_policy" "dynamodb_access" {
           "dynamodb:UpdateItem",
           "dynamodb:DeleteItem"
         ]
-        Resource = aws_dynamodb_table.users.arn
-      }
-    ]
-  })
-}
-
-# ECR用のIAMポリシー
-resource "aws_iam_role_policy" "ecr_access" {
-  name = "ecr-access"
-  role = aws_iam_role.ecs_task_execution_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+        Resource = data.terraform_remote_state.infrastructure.outputs.dynamodb_table_arn
+      },
       {
         Effect = "Allow"
         Action = [
@@ -83,19 +61,7 @@ resource "aws_iam_role_policy" "ecr_access" {
           "ecr:BatchGetImage"
         ]
         Resource = "*"
-      }
-    ]
-  })
-}
-
-# CloudWatch Logs用のIAMポリシー
-resource "aws_iam_role_policy" "cloudwatch_logs" {
-  name = "cloudwatch-logs"
-  role = aws_iam_role.ecs_task_execution_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
+      },
       {
         Effect = "Allow"
         Action = [
@@ -108,7 +74,7 @@ resource "aws_iam_role_policy" "cloudwatch_logs" {
   })
 }
 
-# ECSタスク定義
+# ECSタスク定義とサービス
 resource "aws_ecs_task_definition" "app" {
   family                   = "spring-demo-app"
   network_mode             = "awsvpc"
@@ -121,7 +87,7 @@ resource "aws_ecs_task_definition" "app" {
   container_definitions = jsonencode([
     {
       name  = "app"
-      image = "${aws_ecr_repository.app.repository_url}:latest"
+      image = "${data.terraform_remote_state.infrastructure.outputs.ecr_repository_url}:latest"
       portMappings = [
         {
           containerPort = 8080
@@ -132,13 +98,17 @@ resource "aws_ecs_task_definition" "app" {
         {
           name  = "SPRING_PROFILES_ACTIVE"
           value = "prod"
+        },
+        {
+          name  = "DYNAMODB_ENDPOINT"
+          value = data.terraform_remote_state.infrastructure.outputs.dynamodb_endpoint
         }
       ]
     }
   ])
 }
 
-# ECSサービス
+# ECSサービスを更新
 resource "aws_ecs_service" "app" {
   name            = "spring-demo-service"
   cluster         = aws_ecs_cluster.main.id
@@ -147,22 +117,8 @@ resource "aws_ecs_service" "app" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets          = [aws_default_subnet.default_az1.id]
+    subnets          = [data.terraform_remote_state.infrastructure.outputs.subnet_id]
+    security_groups  = [data.terraform_remote_state.infrastructure.outputs.ecs_tasks_security_group_id]
     assign_public_ip = true
-  }
-}
-
-# デフォルトVPCのサブネットを使用
-resource "aws_default_vpc" "default" {
-  tags = {
-    Name = "Default VPC"
-  }
-}
-
-resource "aws_default_subnet" "default_az1" {
-  availability_zone = "ap-northeast-1a"
-
-  tags = {
-    Name = "Default subnet for ap-northeast-1a"
   }
 } 
