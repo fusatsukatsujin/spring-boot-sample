@@ -5,6 +5,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
@@ -35,15 +36,15 @@ public class HomeController {
     }
 
     @PostMapping("/register")
-    public String register() {
+    public String register(@ModelAttribute UserForm form) {
         dynamoDbClient.putItem(PutItemRequest.builder()
         .tableName("Users")
         .item(Map.of(
-            "id", AttributeValue.builder().s("1").build(),
-            "name", AttributeValue.builder().s("John Doe").build()
+            "id", AttributeValue.builder().s(form.getId()).build(),
+            "name", AttributeValue.builder().s(form.getName()).build()
         ))
         .build());
-        return "index";
+        return "redirect:/";
     }
 
     private static class User {
